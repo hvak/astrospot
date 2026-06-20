@@ -459,7 +459,7 @@ function buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday }) {
   // Nearest dark sky site
   if (nearest) {
     const { site, dist } = nearest;
-    const distStr = dist < 100 ? dist.toFixed(0) : Math.round(dist / 10) * 10;
+    const distStr = dist < 1 ? '<1' : dist < 100 ? dist.toFixed(0) : Math.round(dist / 10) * 10;
     const distColor = dist < 10 ? '#4caf50' : dist < 30 ? '#ffd700' : '#e05555';
     rows.push(tr('🔭', 'Nearest dark site',
       `<a href="https://www.cleardarksky.com/c/${site.key}key.html" target="_blank">${site.name}</a><br><span style="color:${distColor};font-size:11px">${distStr} km away</span>`));
