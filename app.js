@@ -4,6 +4,7 @@ const MOON_EMOJIS = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
 
 let map;
 let currentPin = null;
+let nearestCdsMarker = null;
 let cdsData = null;
 let cdsVisible = true;
 let suppressMapClick = false;
@@ -149,7 +150,7 @@ async function loadCdsLayer() {
     const coords = e.features[0].geometry.coordinates.slice();
     new maplibregl.Popup({ offset: 8 })
       .setLngLat(coords)
-      .setHTML(`<strong>${name}</strong><br><a href="https://www.cleardarksky.com/c/${key}Chart.gif" target="_blank">CDS chart ↗</a>`)
+      .setHTML(`<strong>${name}</strong><br><a href="https://www.cleardarksky.com/c/${key}key.html" target="_blank">CDS chart ↗</a>`)
       .addTo(map);
   });
 
@@ -246,6 +247,7 @@ function initControls() {
 function closePanel() {
   document.getElementById('pin-panel').classList.add('hidden');
   if (currentPin) { currentPin.remove(); currentPin = null; }
+  if (nearestCdsMarker) { nearestCdsMarker.remove(); nearestCdsMarker = null; }
   if (map.getSource('pin-line')) map.getSource('pin-line').setData(emptyFC());
 }
 
@@ -308,7 +310,7 @@ async function placePin(lat, lng) {
   content.innerHTML = '<p class="loading">Loading…</p>';
   document.getElementById('pin-panel').classList.remove('hidden');
 
-  // Draw line to nearest CDS site (use cached data if available)
+  // Draw line to nearest CDS site and fit map to show both points
   const nearest = cdsData ? findNearestCds(lat, lng) : null;
   if (nearest && map.getSource('pin-line')) {
     map.getSource('pin-line').setData({
@@ -319,6 +321,20 @@ async function placePin(lat, lng) {
         properties: {},
       }],
     });
+    map.setPaintProperty('pin-line-layer', 'line-color', nearest.dist >= 30 ? '#e05555' : '#ffd700');
+
+    if (nearestCdsMarker) nearestCdsMarker.remove();
+    const cdsEl = document.createElement('div');
+    cdsEl.className = 'custom-pin';
+    cdsEl.textContent = '🔭';
+    nearestCdsMarker = new maplibregl.Marker({ element: cdsEl, anchor: 'bottom' })
+      .setLngLat([nearest.site.lon, nearest.site.lat])
+      .addTo(map);
+    map.fitBounds(
+      [[Math.min(lng, nearest.site.lon), Math.min(lat, nearest.site.lat)],
+       [Math.max(lng, nearest.site.lon), Math.max(lat, nearest.site.lat)]],
+      { padding: { top: 80, bottom: 100, left: 80, right: 320 }, maxZoom: 12 }
+    );
   }
 
   const [weather, bortle] = await Promise.all([
@@ -444,8 +460,9 @@ function buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday }) {
   if (nearest) {
     const { site, dist } = nearest;
     const distStr = dist < 100 ? dist.toFixed(0) : Math.round(dist / 10) * 10;
+    const distColor = dist >= 30 ? '#e05555' : '#5a6880';
     rows.push(tr('🔭', 'Nearest dark site',
-      `<a href="https://www.cleardarksky.com/c/${site.key}Chart.gif" target="_blank">${site.name}</a><br><span style="color:#5a6880;font-size:11px">${distStr} km away</span>`));
+      `<a href="https://www.cleardarksky.com/c/${site.key}key.html" target="_blank">${site.name}</a><br><span style="color:${distColor};font-size:11px">${distStr} km away</span>`));
   }
 
   // External links
