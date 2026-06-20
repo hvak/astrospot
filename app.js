@@ -321,7 +321,7 @@ async function placePin(lat, lng) {
         properties: {},
       }],
     });
-    map.setPaintProperty('pin-line-layer', 'line-color', nearest.dist >= 30 ? '#e05555' : '#ffd700');
+    map.setPaintProperty('pin-line-layer', 'line-color', nearest.dist < 10 ? '#4caf50' : nearest.dist < 30 ? '#ffd700' : '#e05555');
 
     if (nearestCdsMarker) nearestCdsMarker.remove();
     const cdsEl = document.createElement('div');
@@ -460,7 +460,7 @@ function buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday }) {
   if (nearest) {
     const { site, dist } = nearest;
     const distStr = dist < 100 ? dist.toFixed(0) : Math.round(dist / 10) * 10;
-    const distColor = dist >= 30 ? '#e05555' : '#5a6880';
+    const distColor = dist < 10 ? '#4caf50' : dist < 30 ? '#ffd700' : '#e05555';
     rows.push(tr('🔭', 'Nearest dark site',
       `<a href="https://www.cleardarksky.com/c/${site.key}key.html" target="_blank">${site.name}</a><br><span style="color:${distColor};font-size:11px">${distStr} km away</span>`));
   }
