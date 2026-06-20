@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astro Helper</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="search-box">
+    <input id="search-input" type="text" placeholder="Search location…" autocomplete="off" spellcheck="false" />
+    <ul id="search-results" hidden></ul>
+  </div>
+
+  <div id="pin-panel" class="hidden">
+    <div id="pin-panel-header">
+      <span id="panel-coords"></span>
+      <button id="close-panel" title="Close">✕</button>
+    </div>
+    <div id="panel-content"></div>
+  </div>
+
+  <div id="cds-controls">
+    <button id="cds-toggle" class="active">🔭 Dark Sky Sites</button>
+    <button id="clearoutside-btn">ClearOutside ↗</button>
+  </div>
+
+  <div id="day-strip"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
