@@ -466,10 +466,10 @@ function buildPanelHTML({ lat, lng, nearest, weather, lp, moonToday }) {
 
   // Light pollution
   if (lp) {
-    const [emoji, bortle, color] = ZONE_INFO[lp.zone];
-    const swatch = `<span style="color:${color};text-shadow:0 0 2px #fff">█</span>`;
-    rows.push(tr(emoji, 'Light pollution',
-      `${swatch} ${bortle} · SQM ${lp.sqm.toFixed(1)} · Zone ${lp.zone}<br><span style="color:#5a6880;font-size:11px"><a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" style="color:#4a7aaa">Source ↗</a></span>`));
+    const [, bortle, color] = ZONE_INFO[lp.zone];
+    const icon = `<a href="https://djlorenz.github.io/astronomy/lp/colors.html" target="_blank" style="color:${color};text-shadow:0 0 3px rgba(255,255,255,0.4);font-size:18px;text-decoration:none">█</a>`;
+    rows.push(tr(icon, 'Light pollution',
+      `${bortle} · SQM ${lp.sqm.toFixed(1)} · Zone ${lp.zone}<br><span style="color:#5a6880;font-size:11px"><a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" style="color:#4a7aaa">Source ↗</a></span>`));
   } else {
     rows.push(tr('🔦', 'Light pollution', 'Unavailable'));
   }
