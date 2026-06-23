@@ -337,16 +337,16 @@ async function placePin(lat, lng) {
     );
   }
 
-  const [weather, bortle] = await Promise.all([
+  const [weather, lp] = await Promise.all([
     fetchWeather(lat, lng),
-    fetchBortle(lat, lng),
+    fetchLightPollution(lat, lng),
   ]);
 
   const tonight = new Date();
   tonight.setHours(21, 0, 0, 0);
   const moonToday = SunCalc.getMoonIllumination(tonight);
 
-  content.innerHTML = buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday });
+  content.innerHTML = buildPanelHTML({ lat, lng, nearest, weather, lp, moonToday });
 }
 
 function findNearestCds(lat, lng) {
@@ -374,37 +374,68 @@ async function fetchWeather(lat, lng) {
   } catch { return null; }
 }
 
-async function fetchBortle(lat, lng) {
+async function fetchLightPollution(lat, lng) {
   try {
-    const url = `https://www.lightpollutionmap.info/QueryRaster/?ql=wa_2015&qt=point&lang=en&qd=${lng.toFixed(4)}:${lat.toFixed(4)}`;
-    const data = await fetch(url).then(r => r.json());
-    return radToBortle(data.data);
+    const lonFromDateLine = ((lng + 180) % 360 + 360) % 360;
+    const latFromStart = lat + 65.0;
+    const tilex = Math.floor(lonFromDateLine / 5.0) + 1;
+    const tiley = Math.floor(latFromStart / 5.0) + 1;
+    if (tiley < 1 || tiley > 28) return null; // outside coverage (-65 to 75 lat)
+
+    const ix = Math.round(120 * (lonFromDateLine - 5.0 * (tilex - 1) + 1 / 240));
+    const iy = Math.round(120 * (latFromStart    - 5.0 * (tiley - 1) + 1 / 240));
+
+    const url = `https://djlorenz.github.io/astronomy/binary_tiles/2024/binary_tile_${tilex}_${tiley}.dat.gz`;
+    const buf = await fetch(url).then(r => r.arrayBuffer());
+    const data = new Int8Array(pako.ungzip(new Uint8Array(buf)));
+
+    let change = 0;
+    const first = 128 * Number(data[0]) + Number(data[1]);
+    for (let i = 1; i < iy; i++) change += Number(data[600 * i + 1]);
+    for (let i = 1; i < ix; i++) change += Number(data[600 * (iy - 1) + 1 + i]);
+
+    const brightnessRatio = (5 / 195) * (Math.exp(0.0195 * (first + change)) - 1);
+    const sqm = 22.0 - 5.0 * Math.log(1.0 + brightnessRatio) / Math.log(100);
+    const zone = brightnessToZone(brightnessRatio);
+    return { zone, sqm, brightnessRatio };
   } catch { return null; }
 }
 
-function radToBortle(val) {
-  if (val == null || isNaN(val)) return null;
-  if (val < 0.11) return 1;
-  if (val < 0.33) return 2;
-  if (val < 1.0)  return 3;
-  if (val < 3.0)  return 4;
-  if (val < 9.0)  return 5;
-  if (val < 27.0) return 6;
-  if (val < 81.0) return 7;
-  return 8;
+function brightnessToZone(b) {
+  if (b < 0.01)  return '0';
+  if (b < 0.06)  return '1a';
+  if (b < 0.11)  return '1b';
+  if (b < 0.19)  return '2a';
+  if (b < 0.33)  return '2b';
+  if (b < 0.58)  return '3a';
+  if (b < 1.00)  return '3b';
+  if (b < 1.73)  return '4a';
+  if (b < 3.00)  return '4b';
+  if (b < 5.20)  return '5a';
+  if (b < 9.00)  return '5b';
+  if (b < 15.59) return '6a';
+  if (b < 27.00) return '6b';
+  if (b < 46.77) return '7a';
+  return '7b';
 }
 
-const BORTLE_INFO = [
-  null,
-  ['🌑', 'Bortle 1 — Truly dark'],
-  ['🌑', 'Bortle 2 — Truly dark'],
-  ['🌒', 'Bortle 3 — Rural'],
-  ['🌓', 'Bortle 4 — Rural/suburban transition'],
-  ['🌔', 'Bortle 5 — Suburban'],
-  ['🌖', 'Bortle 6 — Bright suburban'],
-  ['🌕', 'Bortle 7 — Suburban/urban transition'],
-  ['🌟', 'Bortle 8/9 — City'],
-];
+const ZONE_INFO = {
+  '0':  ['🌑', 'Bortle 1',   '#000'],
+  '1a': ['🌑', 'Bortle 1-2', '#222'],
+  '1b': ['🌒', 'Bortle 2',   '#424242'],
+  '2a': ['🌒', 'Bortle 2-3', '#14306e'],
+  '2b': ['🌒', 'Bortle 3',   '#2154d8'],
+  '3a': ['🌓', 'Bortle 3-4', '#0f5714'],
+  '3b': ['🌓', 'Bortle 4',   '#1fa12a'],
+  '4a': ['🌔', 'Bortle 4-5', '#6e641e'],
+  '4b': ['🌔', 'Bortle 5',   '#b8a625'],
+  '5a': ['🌕', 'Bortle 5-6', '#bf641e'],
+  '5b': ['🌕', 'Bortle 6',   '#fd9650'],
+  '6a': ['🌖', 'Bortle 6-7', '#fb5a49'],
+  '6b': ['🌖', 'Bortle 7',   '#fb998a'],
+  '7a': ['🌟', 'Bortle 8',   '#a0a0a0'],
+  '7b': ['🌟', 'Bortle 9',   '#f2f2f2'],
+};
 
 const WMO = {
   0: ['☀️','Clear sky'], 1: ['🌤','Mainly clear'], 2: ['⛅','Partly cloudy'], 3: ['☁️','Overcast'],
@@ -424,7 +455,7 @@ function cloudEmoji(pct) {
   return '☁️';
 }
 
-function buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday }) {
+function buildPanelHTML({ lat, lng, nearest, weather, lp, moonToday }) {
   const rows = [];
   const latStr = lat.toFixed(4), lngStr = lng.toFixed(4);
 
@@ -434,12 +465,13 @@ function buildPanelHTML({ lat, lng, nearest, weather, bortle, moonToday }) {
   rows.push(tr(mEmoji, 'Moon tonight', `${mEmoji} ${mPct}% illuminated`));
 
   // Light pollution
-  if (bortle) {
-    const [be, bl] = BORTLE_INFO[bortle];
-    rows.push(tr(be, 'Light pollution', bl));
+  if (lp) {
+    const [emoji, bortle, color] = ZONE_INFO[lp.zone];
+    const swatch = `<span style="color:${color};text-shadow:0 0 2px #fff">█</span>`;
+    rows.push(tr(emoji, 'Light pollution',
+      `${swatch} ${bortle} · SQM ${lp.sqm.toFixed(1)} · Zone ${lp.zone}<br><span style="color:#5a6880;font-size:11px"><a href="https://djlorenz.github.io/astronomy/lp/" target="_blank" style="color:#4a7aaa">Source ↗</a></span>`));
   } else {
-    rows.push(tr('🔦', 'Light pollution',
-      `<a href="https://www.lightpollutionmap.info/#zoom=10&lat=${lat.toFixed(2)}&lon=${lng.toFixed(2)}&layers=B0FFFFFFFFF" target="_blank">View map ↗</a>`));
+    rows.push(tr('🔦', 'Light pollution', 'Unavailable'));
   }
 
   // Cloud cover
